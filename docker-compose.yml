@@ -1,0 +1,112 @@
+  services:
+    traefik:
+      image: "traefik:v3.6.6"
+      container_name: "purdueio-traefik"
+      restart: unless-stopped
+      security_opt:
+        - no-new-privileges:true
+      networks:
+        - proxy
+      command:
+        - "--providers.docker=true"
+        - "--providers.docker.exposedbydefault=false"
+        - "--providers.docker.network=proxy"
+        - "--entrypoints.web.address=:80"
+        - "--entrypoints.websecure.address=:443"
+        # Redirect HTTP → HTTPS
+        - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+        - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+        # ACME (Let's Encrypt)
+        - "--certificatesresolvers.le.acme.email=${TRAEFIK_ACME_EMAIL}"
+        - "--certificatesresolvers.le.acme.storage=/acme/acme.json"
+        - "--certificatesresolvers.le.acme.httpchallenge.entrypoint=web"
+      ports:
+        - 80:80
+        - 443:443
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock:ro
+        - traefik-acme:/acme
+
+    postgres:
+      image: postgres:18-alpine
+      container_name: purdueio-postgres
+      restart: unless-stopped
+      environment:
+        POSTGRES_DB: ${POSTGRES_DB:-purdueio}
+        POSTGRES_USER: ${POSTGRES_USER:-purdueio}
+        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-purdueio}
+      volumes:
+        - postgres-data:/var/lib/postgresql/data
+      networks:
+        - purdueio-net
+      healthcheck:
+        test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-purdueio}"]
+        interval: 10s
+        timeout: 5s
+        retries: 5
+
+    api:
+      image: ghcr.io/purdue-io/purdueapi/api:1.0.1
+      container_name: purdueio-api
+      restart: unless-stopped
+      # REMOVED: Direct port exposure - use Traefik instead
+      environment:
+        DbProvider: Npgsql
+        DbConnectionString: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-purdueio};Username=${POSTGRES_USER:-purdueio};Password=${POSTGRES_PASSWORD:-purdueio}"
+        ASPNETCORE_URLS: http://+:8080
+        ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      depends_on:
+        postgres:
+          condition: service_healthy
+      networks:
+        - purdueio-net
+        - proxy
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=proxy
+        # HTTPS router
+        - traefik.http.routers.api.rule=Host(`api.purdue.io`)
+        - traefik.http.routers.api.entrypoints=websecure
+        - traefik.http.routers.api.tls.certresolver=le
+        # Service definition
+        - traefik.http.services.api.loadbalancer.server.port=8080
+
+    catalogsync:
+      image: ghcr.io/purdue-io/purdueapi/catalogsync:1.0.1
+      container_name: purdueio-catalogsync
+      restart: unless-stopped
+      environment:
+        DB_PROVIDER: Npgsql
+        DB_CONNECTION_STRING: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-purdueio};Username=${POSTGRES_USER:-purdueio};Password=${POSTGRES_PASSWORD:-purdueio}"
+        SYNC_SCHEDULE: ${SYNC_SCHEDULE:-0 2 * * *}
+        SYNC_TERMS: ${SYNC_TERMS:-}
+        SYNC_SUBJECTS: ${SYNC_SUBJECTS:-}
+        SYNC_ALL_TERMS: ${SYNC_ALL_TERMS:-false}
+        RUN_ONCE: ${RUN_ONCE:-false}
+      depends_on:
+        postgres:
+          condition: service_healthy
+      networks:
+        - purdueio-net
+
+    browser:
+      image: ghcr.io/purdue-io/browser:v1.0.0
+      container_name: purdueio-browser
+      restart: unless-stopped
+      labels:
+        - traefik.enable=true
+        - traefik.docker.network=proxy
+        - traefik.http.routers.browser.rule=Host(`purdue.io`)
+        - traefik.http.routers.browser.entrypoints=websecure
+        - traefik.http.routers.browser.tls.certresolver=le
+        - traefik.http.services.browser.loadbalancer.server.port=80
+      networks:
+        - proxy
+
+  networks:
+    proxy:
+    purdueio-net:
+
+  volumes:
+    traefik-acme:
+    postgres-data:
