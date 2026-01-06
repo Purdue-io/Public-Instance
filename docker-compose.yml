@@ -20,6 +20,8 @@
         - "--certificatesresolvers.le.acme.email=${TRAEFIK_ACME_EMAIL}"
         - "--certificatesresolvers.le.acme.storage=/acme/acme.json"
         - "--certificatesresolvers.le.acme.httpchallenge.entrypoint=web"
+        # Enable semicolon encoding for OData to not be upset
+        - "--entrypoints.websecure.http.encodequerysemicolons=true"
       ports:
         - 80:80
         - 443:443
@@ -49,7 +51,6 @@
       image: ghcr.io/purdue-io/purdueapi/api:1.0.1
       container_name: purdueio-api
       restart: unless-stopped
-      # REMOVED: Direct port exposure - use Traefik instead
       environment:
         DbProvider: Npgsql
         DbConnectionString: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-purdueio};Username=${POSTGRES_USER:-purdueio};Password=${POSTGRES_PASSWORD:-purdueio}"
