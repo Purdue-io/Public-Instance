@@ -56,6 +56,7 @@
         DbConnectionString: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-purdueio};Username=${POSTGRES_USER:-purdueio};Password=${POSTGRES_PASSWORD:-purdueio}"
         ASPNETCORE_URLS: http://+:8080
         ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+        TZ: America/New_York
       depends_on:
         postgres:
           condition: service_healthy
@@ -84,6 +85,7 @@
         SYNC_SUBJECTS: ${SYNC_SUBJECTS:-}
         SYNC_ALL_TERMS: ${SYNC_ALL_TERMS:-false}
         RUN_ONCE: ${RUN_ONCE:-false}
+        TZ: America/New_York
       depends_on:
         postgres:
           condition: service_healthy
