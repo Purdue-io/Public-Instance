@@ -48,7 +48,7 @@
         retries: 5
 
     api:
-      image: ghcr.io/purdue-io/purdueapi/api:1.0.1
+      image: ghcr.io/purdue-io/purdueapi/api:1.0.2
       container_name: purdueio-api
       restart: unless-stopped
       environment:
@@ -74,7 +74,7 @@
         - traefik.http.services.api.loadbalancer.server.port=8080
 
     catalogsync:
-      image: ghcr.io/purdue-io/purdueapi/catalogsync:1.0.1
+      image: ghcr.io/purdue-io/purdueapi/catalogsync:1.0.2
       container_name: purdueio-catalogsync
       restart: unless-stopped
       environment:
