@@ -93,7 +93,7 @@
         - purdueio-net
 
     browser:
-      image: ghcr.io/purdue-io/browser:v1.0.0
+      image: ghcr.io/purdue-io/browser:v1.0.1
       container_name: purdueio-browser
       restart: unless-stopped
       labels:
